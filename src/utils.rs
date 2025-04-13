@@ -6,6 +6,7 @@ use thiserror::Error;
 #[derive(Debug)]
 pub enum FileFormat {
     Csv,
+    Parquet,
 }
 
 #[derive(Error, Debug)]
@@ -33,6 +34,7 @@ pub fn parse_file(
 ) -> Result<FileFormat,FileParseError> {
     match Path::new(file_path).extension().and_then(|ext| ext.to_str()) {
       Some("csv") => Ok(FileFormat::Csv),
+      Some("parquet") => Ok(FileFormat::Parquet),
       Some(_) => Err(FileParseError::UnsupportedFileFormat),
       None => Err(FileParseError::InvalidExtension),
   }
@@ -43,6 +45,7 @@ pub async fn register_table(ctx: &SessionContext, table_name: &str, file_path: &
     let file_name = file_path.to_str().ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
     match file_format? {
         FileFormat::Csv => ctx.register_csv(table_name, file_name, CsvReadOptions::default()).await?,
+        FileFormat::Parquet => ctx.register_parquet(table_name, file_name, ParquetReadOptions::default()).await?,
     };
 
     Ok(ctx.table(table_name).await?)
