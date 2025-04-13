@@ -2,6 +2,7 @@ use dfkit::utils::{DfKitError};
 use structopt::StructOpt;
 use std::path::PathBuf;
 use datafusion::prelude::*;
+use dfkit::convert::convert;
 use dfkit::query::query;
 use dfkit::view::view;
 
@@ -21,6 +22,12 @@ enum Commands {
         sql: Option<String>,
         #[structopt(short = "o", long = "output", parse(from_os_str))]
         output: Option<PathBuf>,
+    },
+    Convert {
+        #[structopt(parse(from_os_str))]
+        filename: PathBuf,
+        #[structopt(parse(from_os_str))]
+        output_filename: PathBuf,
     }
 }
 
@@ -36,6 +43,9 @@ async fn main() -> Result<(), DfKitError> {
         }
         Commands::Query { filename, sql , output} => {
             query(&ctx, &filename, sql, output).await?;
+        }
+        Commands::Convert { filename, output_filename } => {
+            convert(&ctx, &filename, &output_filename).await?;
         }
     }
 
