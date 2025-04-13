@@ -31,7 +31,7 @@ pub enum DfKitError {
     Unknown,
 }
 
-pub fn parse_file(
+pub fn file_type(
     file_path: &Path,
 ) -> Result<FileFormat,FileParseError> {
     match Path::new(file_path).extension().and_then(|ext| ext.to_str()) {
@@ -45,7 +45,7 @@ pub fn parse_file(
 }
 
 pub async fn register_table(ctx: &SessionContext, table_name: &str, file_path: &Path) -> Result<DataFrame, DfKitError> {
-    let file_format = parse_file(file_path);
+    let file_format = file_type(file_path);
     let file_name = file_path.to_str().ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
     match file_format? {
         FileFormat::Csv => ctx.register_csv(table_name, file_name, CsvReadOptions::default()).await?,
