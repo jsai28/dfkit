@@ -5,6 +5,7 @@ use datafusion::prelude::*;
 use dfkit::convert::convert;
 use dfkit::query::query;
 use dfkit::view::view;
+use dfkit::describe::describe;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "dfkit", about = "Command-line data toolkit")]
@@ -28,6 +29,10 @@ enum Commands {
         filename: PathBuf,
         #[structopt(parse(from_os_str))]
         output_filename: PathBuf,
+    },
+    Describe {
+        #[structopt(parse(from_os_str))]
+        filename: PathBuf,
     }
 }
 
@@ -46,6 +51,9 @@ async fn main() -> Result<(), DfKitError> {
         }
         Commands::Convert { filename, output_filename } => {
             convert(&ctx, &filename, &output_filename).await?;
+        }
+        Commands::Describe { filename } => {
+            describe(&ctx, &filename).await?;
         }
     }
 

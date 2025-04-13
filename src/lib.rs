@@ -2,6 +2,7 @@ pub mod utils;
 pub mod view;
 pub mod query;
 pub mod convert;
+pub mod describe;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
