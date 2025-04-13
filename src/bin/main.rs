@@ -2,10 +2,7 @@ use dfkit::utils::{DfKitError};
 use structopt::StructOpt;
 use std::path::PathBuf;
 use datafusion::prelude::*;
-use dfkit::convert::convert;
-use dfkit::query::query;
-use dfkit::view::view;
-use dfkit::describe::describe;
+use dfkit::commands::{view, query, convert, describe};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "dfkit", about = "Command-line data toolkit")]
