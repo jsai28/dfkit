@@ -2,7 +2,7 @@ use dfkit::utils::{DfKitError};
 use structopt::StructOpt;
 use std::path::PathBuf;
 use datafusion::prelude::*;
-use dfkit::commands::{view, query, convert, describe};
+use dfkit::commands::{view, query, convert, describe, schema};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "dfkit", about = "Command-line data toolkit")]
@@ -30,6 +30,10 @@ enum Commands {
     Describe {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
+    },
+    Schema {
+        #[structopt(parse(from_os_str))]
+        filename: PathBuf,
     }
 }
 
@@ -51,6 +55,9 @@ async fn main() -> Result<(), DfKitError> {
         }
         Commands::Describe { filename } => {
             describe(&ctx, &filename).await?;
+        }
+        Commands::Schema { filename } => {
+            schema(&ctx, &filename).await?;
         }
     }
 

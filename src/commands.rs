@@ -61,3 +61,12 @@ pub async fn describe(ctx: &SessionContext, filename: &Path) -> Result<(), DfKit
     describe.show().await?;
     Ok(())
 }
+
+pub async fn schema(ctx: &SessionContext, filename: &Path) -> Result<(), DfKitError> {
+    let _ = register_table(&ctx, "t", &filename).await?;
+    let sql = "SELECT column_name, data_type, is_nullable \
+                                FROM information_schema.columns WHERE table_name = 't'";
+    let df = ctx.sql(sql).await?;
+    df.show().await?;
+    Ok(())
+}
