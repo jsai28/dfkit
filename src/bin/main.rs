@@ -1,7 +1,9 @@
-use dfkit::utils::{register_table, DfKitError};
+use dfkit::utils::{DfKitError};
 use structopt::StructOpt;
 use std::path::PathBuf;
 use datafusion::prelude::*;
+use dfkit::query::query;
+use dfkit::view::view;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "dfkit", about = "Command-line data toolkit")]
@@ -12,6 +14,14 @@ enum Commands {
         #[structopt(short = "l", long = "limit")]
         limit: Option<usize>,
     },
+    Query {
+        #[structopt(parse(from_os_str))]
+        filename: PathBuf,
+        #[structopt(short = "s", long = "sql")]
+        sql: Option<String>,
+        #[structopt(short = "o", long = "output", parse(from_os_str))]
+        output: Option<PathBuf>,
+    }
 }
 
 #[tokio::main]
@@ -22,9 +32,10 @@ async fn main() -> Result<(), DfKitError> {
 
     match cmd {
         Commands::View { filename, limit } => {
-            let df = register_table(&ctx, "t", &filename).await?;
-            let limit = limit.unwrap_or(10);
-            df.show_limit(limit).await?;
+            view(&ctx, &filename, limit).await?;
+        }
+        Commands::Query { filename, sql , output} => {
+            query(&ctx, &filename, sql, output).await?;
         }
     }
 

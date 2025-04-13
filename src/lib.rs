@@ -1,5 +1,6 @@
 pub mod utils;
-pub mod viewer;
+pub mod view;
+pub mod query;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
