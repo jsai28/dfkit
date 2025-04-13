@@ -70,3 +70,12 @@ pub async fn schema(ctx: &SessionContext, filename: &Path) -> Result<(), DfKitEr
     df.show().await?;
     Ok(())
 }
+
+pub async fn count(ctx: &SessionContext, filename: &Path) -> Result<(), DfKitError> {
+    let _ = register_table(&ctx, "t", &filename).await?;
+    let sql = "SELECT COUNT(*) FROM t";
+    let df = ctx.sql(&sql).await?;
+    df.show().await?;
+
+    Ok(())
+}
