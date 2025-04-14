@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use datafusion::common::DataFusionError;
 use datafusion::dataframe::DataFrameWriteOptions;
+use datafusion::logical_expr::col;
 use datafusion::prelude::SessionContext;
 use crate::utils::{file_type, register_table, DfKitError, FileFormat};
 
@@ -76,6 +77,53 @@ pub async fn count(ctx: &SessionContext, filename: &Path) -> Result<(), DfKitErr
     let sql = "SELECT COUNT(*) FROM t";
     let df = ctx.sql(&sql).await?;
     df.show().await?;
+
+    Ok(())
+}
+
+pub async fn sort(
+    ctx: &SessionContext,
+    filename: &Path,
+    columns: &[String],
+    descending: bool,
+    output: Option<PathBuf>,
+) -> Result<(), DfKitError> {
+    let _ = register_table(ctx, "t", filename).await?;
+    let df = ctx.table("t").await?;
+
+    let sort_exprs = columns
+        .iter()
+        .map(|col_name| {
+            if descending {
+                col(col_name).sort(false, true)
+            } else {
+                col(col_name).sort(true, false)
+            }
+        })
+        .collect();
+
+    let sorted_df = df.sort(sort_exprs)?;
+
+    if let Some(out_path) = output {
+        let format = file_type(&out_path)?;
+        match format {
+            FileFormat::Csv => {
+                sorted_df.write_csv(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?
+            }
+            FileFormat::Parquet => {
+                sorted_df.write_parquet(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?
+            }
+            FileFormat::Json => {
+                sorted_df.write_json(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?
+            }
+            FileFormat::Avro => {
+                return Err(DfKitError::DataFusion(DataFusionError::NotImplemented("Avro write not supported".into())));
+            }
+        };
+        println!("Sorted file written to: {}", out_path.display());
+    } else {
+        sorted_df.show().await?;
+    }
 
     Ok(())
 }
