@@ -5,15 +5,25 @@ use std::path::PathBuf;
 use datafusion::prelude::*;
 use dfkit::commands::{view, query, convert, describe, schema, count, sort, reverse, dfsplit, cat};
 
+#[derive(StructOpt, Debug)]
+#[structopt(name = "dfkit", about = "A fast SQL-based CLI tool for working with CSV, Parquet, and JSON data files.")]
+pub struct Cli {
+    #[structopt(subcommand)]
+    pub command: Commands,
+}
+
 #[derive(Debug, StructOpt)]
-#[structopt(name = "dfkit", about = "Command-line data toolkit")]
-enum Commands {
+#[structopt(name = "dfkit")]
+pub enum Commands {
+    #[structopt(about = "View the contents of a file")]
     View {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
         #[structopt(short = "l", long = "limit")]
         limit: Option<usize>,
     },
+
+    #[structopt(about = "Run a SQL query on a file")]
     Query {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
@@ -22,24 +32,34 @@ enum Commands {
         #[structopt(short = "o", long = "output", parse(from_os_str))]
         output: Option<PathBuf>,
     },
+
+    #[structopt(about = "Convert file format (CSV, Parquet, JSON)")]
     Convert {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
         #[structopt(parse(from_os_str))]
         output_filename: PathBuf,
     },
+
+    #[structopt(about = "Show summary statistics for a file")]
     Describe {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
     },
+
+    #[structopt(about = "Show schema of a file")]
     Schema {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
     },
+
+    #[structopt(about = "Count the number of rows in a file")]
     Count {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
     },
+
+    #[structopt(about = "Sort rows by one or more columns")]
     Sort {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
@@ -50,12 +70,16 @@ enum Commands {
         #[structopt(short = "o", long = "output", parse(from_os_str))]
         output: Option<PathBuf>,
     },
+
+    #[structopt(about = "Reverse the order of rows")]
     Reverse {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
         #[structopt(short = "o", long = "output", parse(from_os_str))]
         output: Option<PathBuf>,
     },
+
+    #[structopt(about = "Split a file into N chunks")]
     Split {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
@@ -64,6 +88,8 @@ enum Commands {
         #[structopt(parse(from_os_str))]
         output_dir: Option<PathBuf>,
     },
+
+    #[structopt(about = "Concatenate multiple files or all files in a directory")]
     Cat {
         #[structopt(long, required_unless = "dir")]
         files: Option<String>,
