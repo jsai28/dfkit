@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use datafusion::arrow::error::ArrowError;
 use datafusion::prelude::*;
 use datafusion::error::DataFusionError;
 use thiserror::Error;
@@ -29,6 +30,15 @@ pub enum DfKitError {
 
     #[error("Unknown error")]
     Unknown,
+
+    #[error("Arrow error: {0}")]
+    Arrow(#[from] ArrowError),
+
+    #[error("Error during execution: {0}")]
+    CustomError(String),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 pub fn file_type(
@@ -56,3 +66,23 @@ pub async fn register_table(ctx: &SessionContext, table_name: &str, file_path: &
 
     Ok(ctx.table(table_name).await?)
 }
+
+pub fn parse_file_list(files: Option<String>, dir: Option<PathBuf>) -> Result<Vec<PathBuf>, DfKitError> {
+    if let Some(file_str) = files {
+        Ok(file_str.split(',')
+            .map(|s| PathBuf::from(s.trim()))
+            .collect())
+    } else if let Some(dir_path) = dir {
+        let mut file_list = vec![];
+        for entry in std::fs::read_dir(dir_path)? {
+            let path = entry?.path();
+            if path.is_file() {
+                file_list.push(path);
+            }
+        }
+        Ok(file_list)
+    } else {
+        Err(DfKitError::CustomError("No files or directory provided".into()))
+    }
+}
+

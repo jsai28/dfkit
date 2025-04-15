@@ -1,6 +1,10 @@
+use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use datafusion::arrow::compute::concat_batches;
 use datafusion::common::DataFusionError;
 use datafusion::dataframe::DataFrameWriteOptions;
+use datafusion::datasource::MemTable;
 use datafusion::logical_expr::col;
 use datafusion::prelude::SessionContext;
 use crate::utils::{file_type, register_table, DfKitError, FileFormat};
@@ -88,18 +92,11 @@ pub async fn sort(
     descending: bool,
     output: Option<PathBuf>,
 ) -> Result<(), DfKitError> {
-    let _ = register_table(ctx, "t", filename).await?;
-    let df = ctx.table("t").await?;
+    let df = register_table(ctx, "t", filename).await?;
 
     let sort_exprs = columns
         .iter()
-        .map(|col_name| {
-            if descending {
-                col(col_name).sort(false, true)
-            } else {
-                col(col_name).sort(true, false)
-            }
-        })
+        .map(|col_name| col(col_name).sort(!descending, descending))
         .collect();
 
     let sorted_df = df.sort(sort_exprs)?;
@@ -124,6 +121,140 @@ pub async fn sort(
     } else {
         sorted_df.show().await?;
     }
+
+    Ok(())
+}
+
+pub async fn reverse(
+    ctx: &SessionContext,
+    filename: &Path,
+    output: Option<PathBuf>,
+) -> Result<(), DfKitError> {
+    let df = register_table(ctx, "t", filename).await?;
+    let batches = df.collect().await?;
+
+    let schema = batches[0].schema();
+    let mut all_rows = vec![];
+    for batch in &batches {
+        for row in 0..batch.num_rows() {
+            all_rows.push(batch.slice(row, 1));
+        }
+    }
+
+    all_rows.reverse();
+
+    let reversed_batch = concat_batches(&schema, &all_rows)?;
+
+    let provider = MemTable::try_new(schema, vec![vec![reversed_batch]])?;
+    ctx.register_table("reversed", Arc::new(provider))?;
+    let reversed_df = ctx.table("reversed").await?;
+
+    if let Some(out_path) = output {
+        let format = file_type(&out_path)?;
+        match format {
+            FileFormat::Csv => {
+                reversed_df
+                    .write_csv(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
+                    .await?
+            }
+            FileFormat::Parquet => {
+                reversed_df
+                    .write_parquet(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
+                    .await?
+            }
+            FileFormat::Json => {
+                reversed_df
+                    .write_json(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
+                    .await?
+            }
+            FileFormat::Avro => {
+                return Err(DfKitError::DataFusion(DataFusionError::NotImplemented(
+                    "Avro write not supported".into(),
+                )));
+            }
+        };
+        println!("Reversed file written to: {}", out_path.display());
+    } else {
+        reversed_df.show().await?;
+    }
+
+    Ok(())
+}
+
+pub async fn dfsplit(ctx: &SessionContext, filename: &Path, chunks: usize, output_dir: &Path) -> Result<(), DfKitError> {
+    if chunks == 0 {
+        return Err(DfKitError::CustomError("Chunks must be greater than 0".into()));
+    }
+    let df = register_table(ctx, "t", filename).await?;
+    let total_rows = df.clone().count().await?;
+    let rows_per_chunk = (total_rows + chunks - 1) / chunks;
+
+    fs::create_dir_all(output_dir)?;
+
+    let stem = filename.file_stem().unwrap().to_string_lossy();
+    let extension = filename.extension().unwrap_or_default().to_string_lossy();
+    let format = file_type(filename)?;
+
+    for i in 0..chunks {
+        let offset = i * rows_per_chunk;
+        let chunk_df = df.clone().limit(offset, Some(rows_per_chunk))?;
+
+        let chunk_filename = format!("{}_{}.{}", stem, i + 1, extension);
+        let chunk_path = output_dir.join(chunk_filename);
+
+        match format {
+            FileFormat::Csv => {
+                chunk_df
+                    .write_csv(chunk_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
+                    .await?
+            }
+            FileFormat::Parquet => {
+                chunk_df
+                    .write_parquet(chunk_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
+                    .await?
+            }
+            FileFormat::Json => {
+                chunk_df
+                    .write_json(chunk_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
+                    .await?
+            }
+            FileFormat::Avro => {
+                return Err(DfKitError::DataFusion(DataFusionError::NotImplemented(
+                    "Avro split write not supported".into(),
+                )))
+            }
+        };
+
+        println!("Written chunk {} to {}", i + 1, chunk_path.display());
+    }
+
+    Ok(())
+}
+
+pub async fn cat(ctx: &SessionContext, files: Vec<PathBuf>, out_path: &Path) -> Result<(), DfKitError> {
+    let mut dfs = vec![];
+
+    for (i, file) in files.iter().enumerate() {
+        let table_name = format!("t_{}", i);
+        let df = register_table(ctx, &table_name, file).await?;
+        dfs.push(df);
+    }
+
+    let mut final_df = dfs.remove(0);
+    for df in dfs {
+        final_df = final_df.union(df)?;
+    }
+
+    let format = file_type(&out_path)?;
+    match format {
+        FileFormat::Csv => final_df.write_csv(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
+        FileFormat::Parquet => final_df.write_parquet(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
+        FileFormat::Json => final_df.write_json(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
+        FileFormat::Avro => {
+            return Err(DfKitError::DataFusion(DataFusionError::NotImplemented("Avro write not supported".into())));
+        }
+    };
+    println!("Concatenated file written to: {}", out_path.display());
 
     Ok(())
 }

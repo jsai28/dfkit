@@ -1,8 +1,9 @@
-use dfkit::utils::{DfKitError};
+use std::env;
+use dfkit::utils::{DfKitError, parse_file_list};
 use structopt::StructOpt;
 use std::path::PathBuf;
 use datafusion::prelude::*;
-use dfkit::commands::{view, query, convert, describe, schema, count, sort};
+use dfkit::commands::{view, query, convert, describe, schema, count, sort, reverse, dfsplit, cat};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "dfkit", about = "Command-line data toolkit")]
@@ -48,6 +49,28 @@ enum Commands {
         descending: bool,
         #[structopt(short = "o", long = "output", parse(from_os_str))]
         output: Option<PathBuf>,
+    },
+    Reverse {
+        #[structopt(parse(from_os_str))]
+        filename: PathBuf,
+        #[structopt(short = "o", long = "output", parse(from_os_str))]
+        output: Option<PathBuf>,
+    },
+    Split {
+        #[structopt(parse(from_os_str))]
+        filename: PathBuf,
+        #[structopt(short,long)]
+        chunks: usize,
+        #[structopt(parse(from_os_str))]
+        output_dir: Option<PathBuf>,
+    },
+    Cat {
+        #[structopt(long, required_unless = "dir")]
+        files: Option<String>,
+        #[structopt(long, required_unless = "files")]
+        dir: Option<PathBuf>,
+        #[structopt(short, long)]
+        output: PathBuf,
     }
 }
 
@@ -78,6 +101,17 @@ async fn main() -> Result<(), DfKitError> {
         }
         Commands::Sort { filename, columns, descending, output } => {
             sort(&ctx, &filename, &columns, descending, output).await?;
+        }
+        Commands::Reverse { filename, output } => {
+            reverse(&ctx, &filename, output).await?;
+        }
+        Commands::Split { filename, chunks, output_dir} => {
+            let out_dir = output_dir.unwrap_or_else(|| env::current_dir().unwrap());
+            dfsplit(&ctx, &filename, chunks, &out_dir).await?;
+        }
+        Commands::Cat { files, dir, output } => {
+            let file_list = parse_file_list(files, dir)?;
+            cat(&ctx, file_list, &output).await?;
         }
     }
 
