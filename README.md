@@ -1,3 +1,6 @@
+![CI](https://github.com/jsai28/dfkit/actions/workflows/ci.yml/badge.svg)
+[![codecov](https://codecov.io/gh/jsai28/dfkit/branch/main/graph/badge.svg)](https://codecov.io/gh/jsai28/dfkit)
+
 ## dfkit
 dfkit is an extensive suite of command-line functions to easily view, query, and manipulate CSV, Parquet, JSON, and Avro files. Written in Rust and powered by [Apache Arrow](https://github.com/apache/arrow) and [Apache DataFusion](https://github.com/apache/datafusion). Currently a work in progress.
 
