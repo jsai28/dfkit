@@ -17,3 +17,7 @@ SUBCOMMANDS:
     view        View the contents of a file
 
 ```
+
+## Examples
+
+## Installation
