@@ -1,7 +1,7 @@
 use assert_cmd::Command;
 use tempfile::tempdir;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use insta::assert_snapshot;
 use dfkit::utils::parse_file_list;
 
@@ -11,10 +11,18 @@ fn write_temp_file(dir: &Path, name: &str, contents: &str) -> std::path::PathBuf
     file_path
 }
 
+fn create_basic_csv(dir: &Path) -> PathBuf {
+    write_temp_file(dir, "input.csv", "name,age\nalice,30\nbob,40\n")
+}
+
+fn create_extended_csv(dir: &Path) -> PathBuf {
+    write_temp_file(dir, "input.csv", "name,age\nalice,30\nbob,40\ncharlie,50\n")
+}
+
 #[test]
 fn test_view() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(temp.path(), "input.csv", "name,age\nalice,30\nbob,40\n");
+    let input = create_basic_csv(temp.path());
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     cmd.args(["view", input.to_str().unwrap()]);
     let output = cmd.assert().success().get_output().stdout.clone();
@@ -30,7 +38,7 @@ fn test_view() {
 #[test]
 fn test_view_with_limit() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(temp.path(), "input.csv", "name,age\nalice,30\nbob,40\n");
+    let input = create_basic_csv(temp.path());
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     cmd.args(["view", input.to_str().unwrap(), "-l", "1"]);
     let output = cmd.assert().success().get_output().stdout.clone();
@@ -46,7 +54,7 @@ fn test_view_with_limit() {
 #[test]
 fn test_query() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(temp.path(), "input.csv", "name,age\nalice,30\nbob,40\n");
+    let input = create_basic_csv(temp.path());
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     cmd.args(["query", input.to_str().unwrap(), "--sql", "SELECT * FROM t WHERE age > 35"]);
     let output = cmd.assert().success().get_output().stdout.clone();
@@ -62,7 +70,7 @@ fn test_query() {
 #[test]
 fn test_query_with_output() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(temp.path(), "input.csv", "name,age\nalice,30\nbob,40\n");
+    let input = create_basic_csv(temp.path());
     let output_path = temp.path().join("out.csv");
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
@@ -83,7 +91,7 @@ fn test_query_with_output() {
 #[test]
 fn test_convert_csv_to_json() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(temp.path(), "input.csv", "name,age\nalice,30\nbob,40\n");
+    let input = create_basic_csv(temp.path());
     let output = temp.path().join("output.json");
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
@@ -102,7 +110,7 @@ fn test_convert_csv_to_json() {
 #[test]
 fn test_convert_csv_to_parquet() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(temp.path(), "input.csv", "name,age\nalice,30\nbob,40\n");
+    let input = create_basic_csv(temp.path());
     let output = temp.path().join("output.parquet");
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
@@ -119,7 +127,7 @@ fn test_convert_csv_to_parquet() {
 #[test]
 fn test_convert_to_avro_should_fail() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(temp.path(), "input.csv", "name,age\nalice,30\nbob,40\n");
+    let input = create_basic_csv(temp.path());
     let output = temp.path().join("output.avro");
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
@@ -137,11 +145,7 @@ fn test_convert_to_avro_should_fail() {
 #[test]
 fn test_describe_command() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(
-        temp.path(),
-        "input.csv",
-        "name,age\nalice,30\nbob,40\ncharlie,50\n"
-    );
+    let input = create_basic_csv(temp.path());
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     cmd.args([
@@ -151,28 +155,24 @@ fn test_describe_command() {
 
     let output = cmd.assert().success().get_output().stdout.clone();
     assert_snapshot!(String::from_utf8(output).unwrap(), @r"
-    +------------+---------+------+
-    | describe   | name    | age  |
-    +------------+---------+------+
-    | count      | 3       | 3.0  |
-    | null_count | 0       | 0.0  |
-    | mean       | null    | 40.0 |
-    | std        | null    | 10.0 |
-    | min        | alice   | 30.0 |
-    | max        | charlie | 50.0 |
-    | median     | null    | 40.0 |
-    +------------+---------+------+
+    +------------+-------+--------------------+
+    | describe   | name  | age                |
+    +------------+-------+--------------------+
+    | count      | 2     | 2.0                |
+    | null_count | 0     | 0.0                |
+    | mean       | null  | 35.0               |
+    | std        | null  | 7.0710678118654755 |
+    | min        | alice | 30.0               |
+    | max        | bob   | 40.0               |
+    | median     | null  | 35.0               |
+    +------------+-------+--------------------+
     ");
 }
 
 #[test]
 fn test_schema_command() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(
-        temp.path(),
-        "input.csv",
-        "name,age\nalice,30\nbob,40\n"
-    );
+    let input = create_basic_csv(temp.path());
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     cmd.args([
@@ -194,11 +194,7 @@ fn test_schema_command() {
 #[test]
 fn test_count_command() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(
-        temp.path(),
-        "input.csv",
-        "name,age\nalice,30\nbob,40\ncharlie,50\n"
-    );
+    let input = create_extended_csv(temp.path());
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     cmd.args([
@@ -219,11 +215,7 @@ fn test_count_command() {
 #[test]
 fn test_sort_command_ascending() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(
-        temp.path(),
-        "input.csv",
-        "name,age\nalice,30\nbob,40\ncharlie,50\n"
-    );
+    let input = create_extended_csv(temp.path());
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     cmd.args([
@@ -247,11 +239,7 @@ fn test_sort_command_ascending() {
 #[test]
 fn test_sort_command_descending() {
     let temp = tempdir().unwrap();
-    let input = write_temp_file(
-        temp.path(),
-        "input.csv",
-        "name,age\nalice,30\nbob,40\ncharlie,50\n"
-    );
+    let input = create_extended_csv(temp.path());
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     cmd.args([
@@ -276,7 +264,7 @@ fn test_sort_command_descending() {
 #[test]
 fn test_reverse_stdout() {
     let temp = tempdir().unwrap();
-    let input_path = temp.path().join("input.csv");
+    let input_path = create_extended_csv(temp.path());
     fs::write(&input_path, "name,age\nalice,30\nbob,40\ncharlie,25").unwrap();
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
