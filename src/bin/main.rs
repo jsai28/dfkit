@@ -86,7 +86,7 @@ pub enum Commands {
         #[structopt(short,long)]
         chunks: usize,
         #[structopt(parse(from_os_str))]
-        output_dir: Option<PathBuf>,
+        output: Option<PathBuf>,
     },
 
     #[structopt(about = "Concatenate multiple files or all files in a directory")]
@@ -131,8 +131,8 @@ async fn main() -> Result<(), DfKitError> {
         Commands::Reverse { filename, output } => {
             reverse(&ctx, &filename, output).await?;
         }
-        Commands::Split { filename, chunks, output_dir} => {
-            let out_dir = output_dir.unwrap_or_else(|| env::current_dir().unwrap());
+        Commands::Split { filename, chunks, output} => {
+            let out_dir = output.unwrap_or_else(|| env::current_dir().unwrap());
             dfsplit(&ctx, &filename, chunks, &out_dir).await?;
         }
         Commands::Cat { files, dir, output } => {
