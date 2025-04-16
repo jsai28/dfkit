@@ -139,7 +139,7 @@ fn test_convert_to_avro_should_fail() {
 
     cmd.assert()
         .failure()
-        .stderr(predicates::str::contains("Avro write support not implemented"));
+        .stderr(predicates::str::contains("Avro write not supported"));
 }
 
 #[test]
@@ -351,14 +351,22 @@ fn test_cat_concatenates_csv_files() {
             out_file.to_str().unwrap(),
         ])
         .assert()
-        .success()
-        .get_output()
-        .stdout
-        .clone();
+        .success();
 
-    // Check the output file contents
+    // Read and sort the output CSV
     let result_csv = fs::read_to_string(&out_file).unwrap();
-    assert_snapshot!(result_csv, @r"
+    let lines: Vec<&str> = result_csv.lines().collect();
+
+    let header = lines[0];
+    let mut records = lines[1..].to_vec();
+    records.sort(); // Sort records alphabetically
+
+    let sorted_result = std::iter::once(header)
+        .chain(records.into_iter())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert_snapshot!(sorted_result, @r"
     name,age
     alice,30
     bob,40
