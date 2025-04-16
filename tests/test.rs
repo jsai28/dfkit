@@ -316,7 +316,7 @@ fn test_split_creates_chunks() {
         .unwrap();
 
     // Run the CLI command
-    let output = Command::cargo_bin("dfkit")
+    let _ = Command::cargo_bin("dfkit")
         .unwrap()
         .args(&[
             "split",
@@ -337,4 +337,44 @@ fn test_split_creates_chunks() {
     files.sort();
 
     assert_eq!(files.len(), 2);
+}
+
+#[test]
+fn test_cat_concatenates_csv_files() {
+    let temp = tempdir().unwrap();
+    let file1 = temp.path().join("part1.csv");
+    let file2 = temp.path().join("part2.csv");
+    let out_file = temp.path().join("combined.csv");
+
+    // Create sample CSV files
+    fs::write(&file1, "name,age\nalice,30\nbob,40\n").unwrap();
+    fs::write(&file2, "name,age\ncharlie,25\ndave,20\n").unwrap();
+
+    let input_files = format!("{},{}", file1.display(), file2.display());
+
+    // Run the CLI command
+    let _ = Command::cargo_bin("dfkit")
+        .unwrap()
+        .args(&[
+            "cat",
+            "--files",
+            &input_files,
+            "--output",
+            out_file.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    // Check the output file contents
+    let result_csv = fs::read_to_string(&out_file).unwrap();
+    assert_snapshot!(result_csv, @r"
+    name,age
+    alice,30
+    bob,40
+    charlie,25
+    dave,20
+    ");
 }

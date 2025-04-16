@@ -1,7 +1,0 @@
----
-source: tests/test.rs
-assertion_line: 335
-expression: "String::from_utf8(output).unwrap()"
----
-Written chunk 1 to /var/folders/w1/2v_jhxb96_dgnjv2nmk2wwnw0000gn/T/.tmpn4qpqD/out/data_1.csv
-Written chunk 2 to /var/folders/w1/2v_jhxb96_dgnjv2nmk2wwnw0000gn/T/.tmpn4qpqD/out/data_2.csv
