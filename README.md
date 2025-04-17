@@ -5,6 +5,15 @@ dfkit is an extensive suite of command-line functions to easily view, query, and
 
 ## Commands
 ```
+dfkit 0.1.0
+
+USAGE:
+    dfkit <SUBCOMMAND>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
 SUBCOMMANDS:
     cat         Concatenate multiple files or all files in a directory
     convert     Convert file format (CSV, Parquet, JSON)
@@ -19,7 +28,9 @@ SUBCOMMANDS:
     view        View the contents of a file
 
 ```
-
-## Examples
-
 ## Installation
+dfkit can be installed via cargo (requires rust):
+```
+cargo install dfkit
+```
+## Examples
