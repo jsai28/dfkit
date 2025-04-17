@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use datafusion::arrow::error::ArrowError;
+use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::prelude::*;
 use datafusion::error::DataFusionError;
 use thiserror::Error;
@@ -84,5 +85,17 @@ pub fn parse_file_list(files: Option<String>, dir: Option<PathBuf>) -> Result<Ve
     } else {
         Err(DfKitError::CustomError("No files or directory provided".into()))
     }
+}
+
+pub async fn write_output(df: DataFrame, out_path: &Path, format: &FileFormat) -> Result<(), DfKitError> {
+    match format {
+        FileFormat::Csv => df.write_csv(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
+        FileFormat::Parquet => df.write_parquet(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
+        FileFormat::Json => df.write_json(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
+        FileFormat::Avro => {
+            return Err(DfKitError::DataFusion(DataFusionError::NotImplemented("Avro write not supported".into())));
+        }
+    };
+    Ok(())
 }
 

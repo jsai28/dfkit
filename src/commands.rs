@@ -2,12 +2,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use datafusion::arrow::compute::concat_batches;
-use datafusion::common::DataFusionError;
-use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::datasource::MemTable;
 use datafusion::logical_expr::col;
 use datafusion::prelude::SessionContext;
-use crate::utils::{file_type, register_table, DfKitError, FileFormat};
+use crate::utils::{file_type, register_table, write_output, DfKitError};
 
 pub async fn view(ctx: &SessionContext, filename: &Path, limit: Option<usize>) -> Result<(), DfKitError> {
     let df = register_table(&ctx, "t", &filename).await?;
@@ -28,15 +26,7 @@ pub async fn query(ctx: &SessionContext, filename: &Path, sql: Option<String>, o
     let df_sql = ctx.sql(&*sql.unwrap()).await?;
 
     if let Some(path) = output {
-        match file_type {
-            FileFormat::Csv => df_sql.write_csv(path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-            FileFormat::Parquet => df_sql.write_parquet(path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-            FileFormat::Json => df_sql.write_json(path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-            FileFormat::Avro => {
-                return Err(DfKitError::DataFusion(DataFusionError::NotImplemented("Avro write support not implemented".to_string())));
-            }
-        };
-
+        write_output(df_sql, &path, &file_type).await?;
         println!("File written to: {}, successfully.", path.display());
     } else {
         df_sql.show().await?;
@@ -49,14 +39,7 @@ pub async fn convert(ctx: &SessionContext, filename: &Path, output_filename: &Pa
     let df = register_table(ctx, "t", &filename).await?;
     let output_file_type = file_type(&output_filename)?;
 
-    match output_file_type {
-        FileFormat::Csv => df.write_csv(output_filename.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-        FileFormat::Parquet => df.write_parquet(output_filename.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-        FileFormat::Json => df.write_json(output_filename.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-        FileFormat::Avro => {
-            return Err(DfKitError::DataFusion(DataFusionError::NotImplemented("Avro write support not implemented".to_string())));
-        }
-    };
+    write_output(df, &output_filename, &output_file_type).await?;
     Ok(())
 }
 
@@ -103,20 +86,7 @@ pub async fn sort(
 
     if let Some(out_path) = output {
         let format = file_type(&out_path)?;
-        match format {
-            FileFormat::Csv => {
-                sorted_df.write_csv(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?
-            }
-            FileFormat::Parquet => {
-                sorted_df.write_parquet(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?
-            }
-            FileFormat::Json => {
-                sorted_df.write_json(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?
-            }
-            FileFormat::Avro => {
-                return Err(DfKitError::DataFusion(DataFusionError::NotImplemented("Avro write not supported".into())));
-            }
-        };
+        write_output(sorted_df, &out_path, &format).await?;
         println!("Sorted file written to: {}", out_path.display());
     } else {
         sorted_df.show().await?;
@@ -151,28 +121,7 @@ pub async fn reverse(
 
     if let Some(out_path) = output {
         let format = file_type(&out_path)?;
-        match format {
-            FileFormat::Csv => {
-                reversed_df
-                    .write_csv(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
-                    .await?
-            }
-            FileFormat::Parquet => {
-                reversed_df
-                    .write_parquet(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
-                    .await?
-            }
-            FileFormat::Json => {
-                reversed_df
-                    .write_json(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
-                    .await?
-            }
-            FileFormat::Avro => {
-                return Err(DfKitError::DataFusion(DataFusionError::NotImplemented(
-                    "Avro write not supported".into(),
-                )));
-            }
-        };
+        write_output(reversed_df, &out_path, &format).await?;
         println!("Reversed file written to: {}", out_path.display());
     } else {
         reversed_df.show().await?;
@@ -202,28 +151,7 @@ pub async fn dfsplit(ctx: &SessionContext, filename: &Path, chunks: usize, outpu
         let chunk_filename = format!("{}_{}.{}", stem, i + 1, extension);
         let chunk_path = output_dir.join(chunk_filename);
 
-        match format {
-            FileFormat::Csv => {
-                chunk_df
-                    .write_csv(chunk_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
-                    .await?
-            }
-            FileFormat::Parquet => {
-                chunk_df
-                    .write_parquet(chunk_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
-                    .await?
-            }
-            FileFormat::Json => {
-                chunk_df
-                    .write_json(chunk_path.to_str().unwrap(), DataFrameWriteOptions::default(), None)
-                    .await?
-            }
-            FileFormat::Avro => {
-                return Err(DfKitError::DataFusion(DataFusionError::NotImplemented(
-                    "Avro split write not supported".into(),
-                )))
-            }
-        };
+        write_output(chunk_df, &chunk_path, &format).await?;
 
         println!("Written chunk {} to {}", i + 1, chunk_path.display());
     }
@@ -246,14 +174,7 @@ pub async fn cat(ctx: &SessionContext, files: Vec<PathBuf>, out_path: &Path) -> 
     }
 
     let format = file_type(&out_path)?;
-    match format {
-        FileFormat::Csv => final_df.write_csv(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-        FileFormat::Parquet => final_df.write_parquet(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-        FileFormat::Json => final_df.write_json(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-        FileFormat::Avro => {
-            return Err(DfKitError::DataFusion(DataFusionError::NotImplemented("Avro write not supported".into())));
-        }
-    };
+    write_output(final_df, out_path, &format).await?;
     println!("Concatenated file written to: {}", out_path.display());
 
     Ok(())
