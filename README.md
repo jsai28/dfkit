@@ -38,12 +38,77 @@ cargo install dfkit
 
 View takes the filename and an optional limit argument.
 ```
-dfkit view sample.csv --limit 1
+dfkit view sample.csv
+
++-------+-----+
+| name  | age |
++-------+-----+
+| Joe   | 34  |
+| Matt  | 24  |
+| Emily | 65  |
++-------+-----+
 ```
+Query allows you to query the data with SQL. An optional output argument can also be supplied to save the results.
 ```
+dfkit query sample.csv --sql "SELECT * FROM t WHERE age < 50"
+
 +------+-----+
-| Name | Age |
+| name | age |
 +------+-----+
 | Joe  | 34  |
+| Matt | 24  |
 +------+-----+
 ```
+Show the file schema.
+```
+dfkit schema sample.csv
+
++-------------+-----------+-------------+
+| column_name | data_type | is_nullable |
++-------------+-----------+-------------+
+| name        | Utf8      | YES         |
+| age         | Int64     | YES         |
++-------------+-----------+-------------+
+```
+Show summary statistics of a file with `describe`.
+```
+dfkit describe sample.csv
+
++------------+-------+-------------------+
+| describe   | name  | age               |
++------------+-------+-------------------+
+| count      | 3     | 3.0               |
+| null_count | 0     | 0.0               |
+| mean       | null  | 41.0              |
+| std        | null  | 21.37755832643195 |
+| min        | Emily | 24.0              |
+| max        | Matt  | 65.0              |
+| median     | null  | 34.0              |
++------------+-------+-------------------+
+```
+Reverse the order of rows (save the output with --output)
+```
+dfkit reverse sample.csv
+
++-------+-----+
+| name  | age |
++-------+-----+
+| Emily | 65  |
+| Matt  | 24  |
+| Joe   | 34  |
++-------+-----+
+```
+Sort rows and optionally save the output with --output. You can specify multiple columns as 
+a comma separated string.
+```
+dfkit sort sample.csv --columns "age"
+
++-------+-----+
+| name  | age |
++-------+-----+
+| Matt  | 24  |
+| Joe   | 34  |
+| Emily | 65  |
++-------+-----+
+```
+
