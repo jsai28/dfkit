@@ -2,6 +2,12 @@
 name = "dfkit"
 version = "0.1.0"
 edition = "2024"
+description = "A command-line toolkit for querying and transforming CSV, JSON, Parquet, and Avro data."
+repository = "https://github.com/jsai28/dfkit"
+license = "MIT"
+keywords = ["cli", "datafusion", "data", "query"]
+categories = ["command-line-utilities"]
+authors = ["Jyotir Sai <jyotirsai28@gmail.com>"]
 
 [[bin]]
 name = "dfkit"
