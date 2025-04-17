@@ -3,3 +3,4 @@
 .idea/
 cobertura.xml
 
+/tests/data/
