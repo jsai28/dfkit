@@ -35,3 +35,15 @@ dfkit can be installed via cargo (requires rust):
 cargo install dfkit
 ```
 ## Examples
+
+View takes the filename and an optional limit argument.
+```
+dfkit view sample.csv --limit 1
+```
+```
++------+-----+
+| Name | Age |
++------+-----+
+| Joe  | 34  |
++------+-----+
+```
