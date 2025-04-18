@@ -5,6 +5,14 @@
 ## dfkit
 dfkit is an extensive suite of command-line functions to easily view, query, and manipulate CSV, Parquet, JSON, and Avro files. Written in Rust and powered by [Apache Arrow](https://github.com/apache/arrow) and [Apache DataFusion](https://github.com/apache/datafusion). Currently a work in progress.
 
+## Highlights
+Here's a high level overview of some of the features in dfkit:
+
+- Supports viewing and manipulating both local files and remote URLs
+- Works with CSV, JSON, Parquet, and Avro files
+- Ultra-fast performance powered by Apache Arrow and DataFusion
+- Extensive feature set with more coming soon
+- Written entirely in Rust!
 ## Commands
 ```
 dfkit 0.1.0
