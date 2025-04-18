@@ -4,6 +4,8 @@ use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::prelude::*;
 use datafusion::error::DataFusionError;
 use thiserror::Error;
+use tempfile::NamedTempFile;
+use reqwest::Client;
 
 #[derive(Debug)]
 pub enum FileFormat {
@@ -40,6 +42,9 @@ pub enum DfKitError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Reqwest error: {0}")]
+    Reqwest(#[from] reqwest::Error),
 }
 
 pub fn file_type(
@@ -56,9 +61,19 @@ pub fn file_type(
 }
 
 pub async fn register_table(ctx: &SessionContext, table_name: &str, file_path: &Path) -> Result<DataFrame, DfKitError> {
-    let file_format = file_type(file_path);
-    let file_name = file_path.to_str().ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
-    match file_format? {
+    let path_str = file_path.to_str().ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
+    let is_url = path_str.starts_with("http://") || path_str.starts_with("https://");
+
+    let actual_path = if is_url {
+        let (_tmpfile, local_path) = download_to_tempfile(path_str).await?;
+        local_path
+    } else {
+        file_path.to_path_buf()
+    };
+
+    let file_format = file_type(&actual_path)?;
+    let file_name = actual_path.to_str().ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
+    match file_format {
         FileFormat::Csv => ctx.register_csv(table_name, file_name, CsvReadOptions::default()).await?,
         FileFormat::Parquet => ctx.register_parquet(table_name, file_name, ParquetReadOptions::default()).await?,
         FileFormat::Json => ctx.register_json(table_name, file_name, NdJsonReadOptions::default()).await?,
@@ -97,5 +112,28 @@ pub async fn write_output(df: DataFrame, out_path: &Path, format: &FileFormat) -
         }
     };
     Ok(())
+}
+
+pub async fn download_to_tempfile(url: &str) -> Result<(NamedTempFile, PathBuf), DfKitError> {
+    let response = Client::new().get(url).send().await?.bytes().await?;
+
+    // Try to extract the file extension from the URL
+    let ext = url.split('.').last().and_then(|e| {
+        let e = e.split('?').next().unwrap_or(e); // strip query string
+        match e {
+            "csv" | "json" | "parquet" | "avro" => Some(e),
+            _ => None,
+        }
+    }).ok_or(FileParseError::InvalidExtension)?;
+
+    // Create temp file with extension
+    let tempfile = NamedTempFile::new()?;
+    let mut path_with_ext = tempfile.path().to_path_buf();
+    path_with_ext.set_extension(ext);
+
+    std::fs::copy(tempfile.path(), &path_with_ext)?;
+    std::fs::write(&path_with_ext, &response)?;
+
+    Ok((tempfile, path_with_ext))
 }
 

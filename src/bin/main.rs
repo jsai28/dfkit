@@ -89,7 +89,7 @@ pub enum Commands {
         output: Option<PathBuf>,
     },
 
-    #[structopt(about = "Concatenate multiple files or all files in a directory")]
+    #[structopt(about = "Concatenate multiple files or all files in a directory row-wise")]
     Cat {
         #[structopt(long, required_unless = "dir")]
         files: Option<String>,
