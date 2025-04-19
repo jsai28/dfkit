@@ -2,9 +2,8 @@ use assert_cmd::Command;
 use tempfile::tempdir;
 use std::fs;
 use std::path::{Path, PathBuf};
-use datafusion::prelude::SessionContext;
 use insta::assert_snapshot;
-use dfkit::utils::{parse_file_list, register_table};
+use dfkit::utils::{parse_file_list};
 
 fn write_temp_file(dir: &Path, name: &str, contents: &str) -> std::path::PathBuf {
     let file_path = dir.join(name);
@@ -376,13 +375,34 @@ fn test_cat_concatenates_csv_files() {
     ");
 }
 
-#[tokio::test]
-async fn test_register_table_remote_csv() {
-    let ctx = SessionContext::new();
+#[test]
+fn test_url_file_split_to_local() {
+    let temp = tempdir().unwrap();
+    let output_dir = temp.path().join("out");
     let url = "https://people.sc.fsu.edu/~jburkardt/data/csv/airtravel.csv";
 
-    let df = register_table(&ctx, "remote_csv", Path::new(url)).await.unwrap();
-    let results = df.collect().await.unwrap();
+    let _ = Command::cargo_bin("dfkit")
+        .unwrap()
+        .args(&[
+            "split",
+            url,
+            "--chunks",
+            "5",
+            output_dir.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
 
-    assert!(!results.is_empty());
+    // Assert output files exist using parse_file_list
+    let mut files = parse_file_list(None, Some(output_dir.clone())).unwrap();
+
+    files.sort();
+
+    assert_eq!(files.len(), 5);
 }
+
+
+

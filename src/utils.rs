@@ -7,7 +7,7 @@ use thiserror::Error;
 use tempfile::NamedTempFile;
 use reqwest::Client;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FileFormat {
     Csv,
     Parquet,

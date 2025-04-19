@@ -11,7 +11,7 @@ Here's a high level overview of some of the features in dfkit:
 - Supports viewing and manipulating both local files and remote URLs
 - Works with CSV, JSON, Parquet, and Avro files
 - Ultra-fast performance powered by Apache Arrow and DataFusion
-- Extensive feature set with more coming soon
+- Transform data with SQL or with several other built-in functions
 - Written entirely in Rust!
 ## Commands
 ```

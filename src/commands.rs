@@ -136,7 +136,16 @@ pub async fn dfsplit(ctx: &SessionContext, filename: &Path, chunks: usize, outpu
     }
     let df = register_table(ctx, "t", filename).await?;
     let total_rows = df.clone().count().await?;
-    let rows_per_chunk = (total_rows + chunks - 1) / chunks;
+    let mut rows_per_chunk = total_rows / chunks; // in the odd case, the last chunk will fill in the rest
+    let mut remainder = total_rows % chunks;
+
+    if remainder > 0 {
+        rows_per_chunk += 1;
+    }
+
+    if chunks > total_rows {
+        return Err(DfKitError::CustomError("Chunks must be smaller than total rows".into()));
+    }
 
     fs::create_dir_all(output_dir)?;
 
@@ -145,6 +154,10 @@ pub async fn dfsplit(ctx: &SessionContext, filename: &Path, chunks: usize, outpu
     let format = file_type(filename)?;
 
     for i in 0..chunks {
+        if remainder > 0 && i >= remainder {
+            rows_per_chunk -= 1;
+            remainder = 0;
+        }
         let offset = i * rows_per_chunk;
         let chunk_df = df.clone().limit(offset, Some(rows_per_chunk))?;
 
