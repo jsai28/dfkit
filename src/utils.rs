@@ -93,7 +93,11 @@ pub fn parse_file_list(files: Option<String>, dir: Option<PathBuf>) -> Result<Ve
         for entry in std::fs::read_dir(dir_path)? {
             let path = entry?.path();
             if path.is_file() {
-                file_list.push(path);
+                if file_type(&path).is_ok() {
+                    file_list.push(path);
+                } else {
+                    println!("{:?} is not a compatible file, skipping...", path);
+                }
             }
         }
         Ok(file_list)
