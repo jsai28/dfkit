@@ -1,12 +1,15 @@
-use std::env;
-use dfkit::utils::{DfKitError, parse_file_list};
-use structopt::StructOpt;
-use std::path::PathBuf;
 use datafusion::prelude::*;
-use dfkit::commands::{view, query, convert, describe, schema, count, sort, reverse, dfsplit, cat};
+use dfkit::commands::{cat, convert, count, describe, dfsplit, query, reverse, schema, sort, view};
+use dfkit::utils::{DfKitError, parse_file_list};
+use std::env;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "dfkit", about = "A fast SQL-based CLI tool for working with CSV, Parquet, and JSON data files.")]
+#[structopt(
+    name = "dfkit",
+    about = "A fast SQL-based CLI tool for working with CSV, Parquet, and JSON data files."
+)]
 pub struct Cli {
     #[structopt(subcommand)]
     pub command: Commands,
@@ -38,7 +41,7 @@ pub enum Commands {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
         #[structopt(parse(from_os_str))]
-        output_filename: PathBuf,
+        output: PathBuf,
     },
 
     #[structopt(about = "Show summary statistics for a file")]
@@ -65,7 +68,7 @@ pub enum Commands {
         filename: PathBuf,
         #[structopt(short, long, use_delimiter = true)]
         columns: Vec<String>,
-        #[structopt(short,long)]
+        #[structopt(short, long)]
         descending: bool,
         #[structopt(short = "o", long = "output", parse(from_os_str))]
         output: Option<PathBuf>,
@@ -83,9 +86,9 @@ pub enum Commands {
     Split {
         #[structopt(parse(from_os_str))]
         filename: PathBuf,
-        #[structopt(short,long)]
+        #[structopt(short, long)]
         chunks: usize,
-        #[structopt(parse(from_os_str))]
+        #[structopt(short, long)]
         output: Option<PathBuf>,
     },
 
@@ -95,9 +98,9 @@ pub enum Commands {
         files: Option<String>,
         #[structopt(long, required_unless = "files")]
         dir: Option<PathBuf>,
-        #[structopt(short, long)]
+        #[structopt(short, long, parse(from_os_str))]
         output: PathBuf,
-    }
+    },
 }
 
 #[tokio::main]
@@ -110,11 +113,18 @@ async fn main() -> Result<(), DfKitError> {
         Commands::View { filename, limit } => {
             view(&ctx, &filename, limit).await?;
         }
-        Commands::Query { filename, sql , output} => {
+        Commands::Query {
+            filename,
+            sql,
+            output,
+        } => {
             query(&ctx, &filename, sql, output).await?;
         }
-        Commands::Convert { filename, output_filename } => {
-            convert(&ctx, &filename, &output_filename).await?;
+        Commands::Convert {
+            filename,
+            output,
+        } => {
+            convert(&ctx, &filename, &output).await?;
         }
         Commands::Describe { filename } => {
             describe(&ctx, &filename).await?;
@@ -125,13 +135,22 @@ async fn main() -> Result<(), DfKitError> {
         Commands::Count { filename } => {
             count(&ctx, &filename).await?;
         }
-        Commands::Sort { filename, columns, descending, output } => {
+        Commands::Sort {
+            filename,
+            columns,
+            descending,
+            output,
+        } => {
             sort(&ctx, &filename, &columns, descending, output).await?;
         }
         Commands::Reverse { filename, output } => {
             reverse(&ctx, &filename, output).await?;
         }
-        Commands::Split { filename, chunks, output} => {
+        Commands::Split {
+            filename,
+            chunks,
+            output,
+        } => {
             let out_dir = output.unwrap_or_else(|| env::current_dir().unwrap());
             dfsplit(&ctx, &filename, chunks, &out_dir).await?;
         }

@@ -1,11 +1,11 @@
-use std::path::{Path, PathBuf};
 use datafusion::arrow::error::ArrowError;
 use datafusion::dataframe::DataFrameWriteOptions;
-use datafusion::prelude::*;
 use datafusion::error::DataFusionError;
-use thiserror::Error;
-use tempfile::NamedTempFile;
+use datafusion::prelude::*;
 use reqwest::Client;
+use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
+use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum FileFormat {
@@ -47,21 +47,28 @@ pub enum DfKitError {
     Reqwest(#[from] reqwest::Error),
 }
 
-pub fn file_type(
-    file_path: &Path,
-) -> Result<FileFormat,FileParseError> {
-    match Path::new(file_path).extension().and_then(|ext| ext.to_str()) {
-      Some("csv") => Ok(FileFormat::Csv),
-      Some("parquet") => Ok(FileFormat::Parquet),
-      Some("json") => Ok(FileFormat::Json),
-      Some("avro") => Ok(FileFormat::Avro),
-      Some(_) => Err(FileParseError::UnsupportedFileFormat),
-      None => Err(FileParseError::InvalidExtension),
-  }
+pub fn file_type(file_path: &Path) -> Result<FileFormat, FileParseError> {
+    match Path::new(file_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+    {
+        Some("csv") => Ok(FileFormat::Csv),
+        Some("parquet") => Ok(FileFormat::Parquet),
+        Some("json") => Ok(FileFormat::Json),
+        Some("avro") => Ok(FileFormat::Avro),
+        Some(_) => Err(FileParseError::UnsupportedFileFormat),
+        None => Err(FileParseError::InvalidExtension),
+    }
 }
 
-pub async fn register_table(ctx: &SessionContext, table_name: &str, file_path: &Path) -> Result<DataFrame, DfKitError> {
-    let path_str = file_path.to_str().ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
+pub async fn register_table(
+    ctx: &SessionContext,
+    table_name: &str,
+    file_path: &Path,
+) -> Result<DataFrame, DfKitError> {
+    let path_str = file_path
+        .to_str()
+        .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
     let is_url = path_str.starts_with("http://") || path_str.starts_with("https://");
 
     let actual_path = if is_url {
@@ -72,20 +79,38 @@ pub async fn register_table(ctx: &SessionContext, table_name: &str, file_path: &
     };
 
     let file_format = file_type(&actual_path)?;
-    let file_name = actual_path.to_str().ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
+    let file_name = actual_path
+        .to_str()
+        .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
     match file_format {
-        FileFormat::Csv => ctx.register_csv(table_name, file_name, CsvReadOptions::default()).await?,
-        FileFormat::Parquet => ctx.register_parquet(table_name, file_name, ParquetReadOptions::default()).await?,
-        FileFormat::Json => ctx.register_json(table_name, file_name, NdJsonReadOptions::default()).await?,
-        FileFormat::Avro => ctx.register_avro(table_name, file_name, AvroReadOptions::default()).await?,
+        FileFormat::Csv => {
+            ctx.register_csv(table_name, file_name, CsvReadOptions::default())
+                .await?
+        }
+        FileFormat::Parquet => {
+            ctx.register_parquet(table_name, file_name, ParquetReadOptions::default())
+                .await?
+        }
+        FileFormat::Json => {
+            ctx.register_json(table_name, file_name, NdJsonReadOptions::default())
+                .await?
+        }
+        FileFormat::Avro => {
+            ctx.register_avro(table_name, file_name, AvroReadOptions::default())
+                .await?
+        }
     };
 
     Ok(ctx.table(table_name).await?)
 }
 
-pub fn parse_file_list(files: Option<String>, dir: Option<PathBuf>) -> Result<Vec<PathBuf>, DfKitError> {
+pub fn parse_file_list(
+    files: Option<String>,
+    dir: Option<PathBuf>,
+) -> Result<Vec<PathBuf>, DfKitError> {
     if let Some(file_str) = files {
-        Ok(file_str.split(',')
+        Ok(file_str
+            .split(',')
             .map(|s| PathBuf::from(s.trim()))
             .collect())
     } else if let Some(dir_path) = dir {
@@ -102,17 +127,46 @@ pub fn parse_file_list(files: Option<String>, dir: Option<PathBuf>) -> Result<Ve
         }
         Ok(file_list)
     } else {
-        Err(DfKitError::CustomError("No files or directory provided".into()))
+        Err(DfKitError::CustomError(
+            "No files or directory provided".into(),
+        ))
     }
 }
 
-pub async fn write_output(df: DataFrame, out_path: &Path, format: &FileFormat) -> Result<(), DfKitError> {
+pub async fn write_output(
+    df: DataFrame,
+    out_path: &Path,
+    format: &FileFormat,
+) -> Result<(), DfKitError> {
     match format {
-        FileFormat::Csv => df.write_csv(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-        FileFormat::Parquet => df.write_parquet(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
-        FileFormat::Json => df.write_json(out_path.to_str().unwrap(), DataFrameWriteOptions::default(), None).await?,
+        FileFormat::Csv => {
+            df.write_csv(
+                out_path.to_str().unwrap(),
+                DataFrameWriteOptions::default(),
+                None,
+            )
+            .await?
+        }
+        FileFormat::Parquet => {
+            df.write_parquet(
+                out_path.to_str().unwrap(),
+                DataFrameWriteOptions::default(),
+                None,
+            )
+            .await?
+        }
+        FileFormat::Json => {
+            df.write_json(
+                out_path.to_str().unwrap(),
+                DataFrameWriteOptions::default(),
+                None,
+            )
+            .await?
+        }
         FileFormat::Avro => {
-            return Err(DfKitError::DataFusion(DataFusionError::NotImplemented("Avro write not supported".into())));
+            return Err(DfKitError::DataFusion(DataFusionError::NotImplemented(
+                "Avro write not supported".into(),
+            )));
         }
     };
     Ok(())
@@ -122,13 +176,17 @@ pub async fn download_to_tempfile(url: &str) -> Result<(NamedTempFile, PathBuf),
     let response = Client::new().get(url).send().await?.bytes().await?;
 
     // Try to extract the file extension from the URL
-    let ext = url.split('.').last().and_then(|e| {
-        let e = e.split('?').next().unwrap_or(e); // strip query string
-        match e {
-            "csv" | "json" | "parquet" | "avro" => Some(e),
-            _ => None,
-        }
-    }).ok_or(FileParseError::InvalidExtension)?;
+    let ext = url
+        .split('.')
+        .last()
+        .and_then(|e| {
+            let e = e.split('?').next().unwrap_or(e); // strip query string
+            match e {
+                "csv" | "json" | "parquet" | "avro" => Some(e),
+                _ => None,
+            }
+        })
+        .ok_or(FileParseError::InvalidExtension)?;
 
     // Create temp file with extension
     let tempfile = NamedTempFile::new()?;
@@ -140,4 +198,3 @@ pub async fn download_to_tempfile(url: &str) -> Result<(NamedTempFile, PathBuf),
 
     Ok((tempfile, path_with_ext))
 }
-

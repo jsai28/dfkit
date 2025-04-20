@@ -1,9 +1,9 @@
 use assert_cmd::Command;
-use tempfile::tempdir;
+use dfkit::utils::parse_file_list;
+use insta::assert_snapshot;
 use std::fs;
 use std::path::{Path, PathBuf};
-use insta::assert_snapshot;
-use dfkit::utils::{parse_file_list};
+use tempfile::tempdir;
 
 fn write_temp_file(dir: &Path, name: &str, contents: &str) -> std::path::PathBuf {
     let file_path = dir.join(name);
@@ -56,7 +56,12 @@ fn test_query() {
     let temp = tempdir().unwrap();
     let input = create_basic_csv(temp.path());
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
-    cmd.args(["query", input.to_str().unwrap(), "--sql", "SELECT * FROM t WHERE age > 35"]);
+    cmd.args([
+        "query",
+        input.to_str().unwrap(),
+        "--sql",
+        "SELECT * FROM t WHERE age > 35",
+    ]);
     let output = cmd.assert().success().get_output().stdout.clone();
     assert_snapshot!(String::from_utf8(output).unwrap(), @r"
     +------+-----+
@@ -95,11 +100,7 @@ fn test_convert_csv_to_json() {
     let output = temp.path().join("output.json");
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
-    cmd.args([
-        "convert",
-        input.to_str().unwrap(),
-        output.to_str().unwrap(),
-    ]);
+    cmd.args(["convert", input.to_str().unwrap(), output.to_str().unwrap()]);
 
     cmd.assert().success();
 
@@ -114,11 +115,7 @@ fn test_convert_csv_to_parquet() {
     let output = temp.path().join("output.parquet");
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
-    cmd.args([
-        "convert",
-        input.to_str().unwrap(),
-        output.to_str().unwrap(),
-    ]);
+    cmd.args(["convert", input.to_str().unwrap(), output.to_str().unwrap()]);
 
     cmd.assert().success();
     assert!(output.exists(), "Parquet file not created");
@@ -131,11 +128,7 @@ fn test_convert_to_avro_should_fail() {
     let output = temp.path().join("output.avro");
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
-    cmd.args([
-        "convert",
-        input.to_str().unwrap(),
-        output.to_str().unwrap(),
-    ]);
+    cmd.args(["convert", input.to_str().unwrap(), output.to_str().unwrap()]);
 
     cmd.assert()
         .failure()
@@ -148,10 +141,7 @@ fn test_describe_command() {
     let input = create_basic_csv(temp.path());
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
-    cmd.args([
-        "describe",
-        input.to_str().unwrap(),
-    ]);
+    cmd.args(["describe", input.to_str().unwrap()]);
 
     let output = cmd.assert().success().get_output().stdout.clone();
     assert_snapshot!(String::from_utf8(output).unwrap(), @r"
@@ -175,10 +165,7 @@ fn test_schema_command() {
     let input = create_basic_csv(temp.path());
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
-    cmd.args([
-        "schema",
-        input.to_str().unwrap(),
-    ]);
+    cmd.args(["schema", input.to_str().unwrap()]);
 
     let output = cmd.assert().success().get_output().stdout.clone();
     assert_snapshot!(String::from_utf8(output).unwrap(), @r"
@@ -197,10 +184,7 @@ fn test_count_command() {
     let input = create_extended_csv(temp.path());
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
-    cmd.args([
-        "count",
-        input.to_str().unwrap(),
-    ]);
+    cmd.args(["count", input.to_str().unwrap()]);
 
     let output = cmd.assert().success().get_output().stdout.clone();
     assert_snapshot!(String::from_utf8(output).unwrap(), @r"
@@ -218,11 +202,7 @@ fn test_sort_command_ascending() {
     let input = create_extended_csv(temp.path());
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
-    cmd.args([
-        "sort",
-        input.to_str().unwrap(),
-        "--columns", "age",
-    ]);
+    cmd.args(["sort", input.to_str().unwrap(), "--columns", "age"]);
 
     let output = cmd.assert().success().get_output().stdout.clone();
     assert_snapshot!(String::from_utf8(output).unwrap(), @r"
@@ -245,7 +225,8 @@ fn test_sort_command_descending() {
     cmd.args([
         "sort",
         input.to_str().unwrap(),
-        "--columns", "age",
+        "--columns",
+        "age",
         "--descending",
     ]);
 
@@ -269,10 +250,7 @@ fn test_reverse_stdout() {
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     let output = cmd
-        .args([
-            "reverse",
-            input_path.to_str().unwrap(),
-        ])
+        .args(["reverse", input_path.to_str().unwrap()])
         .assert()
         .success()
         .get_output()
@@ -301,7 +279,7 @@ fn test_split_creates_chunks() {
         &input_path,
         "name,age\nalice,30\nbob,40\ncharlie,25\ndave,20\nellen,45\n",
     )
-        .unwrap();
+    .unwrap();
 
     // Run the CLI command
     let _ = Command::cargo_bin("dfkit")
@@ -311,6 +289,7 @@ fn test_split_creates_chunks() {
             input_path.to_str().unwrap(),
             "--chunks",
             "2",
+            "--output",
             output_dir.to_str().unwrap(),
         ])
         .assert()
@@ -320,7 +299,7 @@ fn test_split_creates_chunks() {
         .clone();
 
     // Assert output files exist using parse_file_list
-    let mut files= parse_file_list(None, Some(output_dir.clone())).unwrap();
+    let mut files = parse_file_list(None, Some(output_dir.clone())).unwrap();
 
     files.sort();
 
@@ -383,13 +362,7 @@ fn test_url_file_split_to_local() {
 
     let _ = Command::cargo_bin("dfkit")
         .unwrap()
-        .args(&[
-            "split",
-            url,
-            "--chunks",
-            "5",
-            output_dir.to_str().unwrap(),
-        ])
+        .args(&["split", url, "--chunks", "5", "--output", output_dir.to_str().unwrap()])
         .assert()
         .success()
         .get_output()
@@ -403,6 +376,3 @@ fn test_url_file_split_to_local() {
 
     assert_eq!(files.len(), 5);
 }
-
-
-

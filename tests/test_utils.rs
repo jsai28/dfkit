@@ -1,17 +1,21 @@
-use std::fs::File;
-use std::io::Write;
-use std::path::{Path, PathBuf};
 use datafusion::error::DataFusionError;
 use datafusion::prelude::{CsvReadOptions, SessionContext};
-use tempfile::{tempdir, NamedTempFile};
-use dfkit::utils::{download_to_tempfile, file_type, parse_file_list, register_table, write_output, DfKitError, FileFormat, FileParseError};
+use dfkit::utils::{
+    DfKitError, FileFormat, FileParseError, download_to_tempfile, file_type, parse_file_list,
+    register_table, write_output,
+};
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use tempfile::tempdir;
 
 #[tokio::test]
 async fn test_register_table_remote_csv() {
     let ctx = SessionContext::new();
     let url = "https://people.sc.fsu.edu/~jburkardt/data/csv/airtravel.csv";
 
-    let df = register_table(&ctx, "remote_csv", Path::new(url)).await.unwrap();
+    let df = register_table(&ctx, "remote_csv", Path::new(url))
+        .await
+        .unwrap();
     let results = df.collect().await.unwrap();
 
     assert!(!results.is_empty());
@@ -20,7 +24,10 @@ async fn test_register_table_remote_csv() {
 #[test]
 fn test_file_type_supported() {
     assert_eq!(file_type(Path::new("file.csv")).unwrap(), FileFormat::Csv);
-    assert_eq!(file_type(Path::new("file.parquet")).unwrap(), FileFormat::Parquet);
+    assert_eq!(
+        file_type(Path::new("file.parquet")).unwrap(),
+        FileFormat::Parquet
+    );
     assert_eq!(file_type(Path::new("file.json")).unwrap(), FileFormat::Json);
     assert_eq!(file_type(Path::new("file.avro")).unwrap(), FileFormat::Avro);
 }
@@ -82,18 +89,28 @@ async fn test_write_output_and_read_back() {
     std::fs::write(&input_path, csv_data).unwrap();
 
     // Read the CSV into a DataFrame
-    let df = ctx.read_csv(input_path.to_str().unwrap(), CsvReadOptions::default()).await.unwrap();
+    let df = ctx
+        .read_csv(input_path.to_str().unwrap(), CsvReadOptions::default())
+        .await
+        .unwrap();
 
     // Define output path with .csv extension
     let out_path = tmp_dir.path().join("output.csv");
 
     // Write to CSV (should succeed)
-    write_output(df.clone(), &out_path, &FileFormat::Csv).await.unwrap();
+    write_output(df.clone(), &out_path, &FileFormat::Csv)
+        .await
+        .unwrap();
     assert!(out_path.exists());
 
     // Try writing to Avro (should fail with NotImplemented)
-    let err = write_output(df, &out_path, &FileFormat::Avro).await.unwrap_err();
-    assert!(matches!(err, DfKitError::DataFusion(DataFusionError::NotImplemented(_))));
+    let err = write_output(df, &out_path, &FileFormat::Avro)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        DfKitError::DataFusion(DataFusionError::NotImplemented(_))
+    ));
 }
 
 #[tokio::test]
@@ -108,7 +125,9 @@ async fn test_register_table_csv() {
     std::fs::write(&file_path, "id,name\n1,Alice\n2,Bob").unwrap();
 
     // Register table and verify contents
-    let df = register_table(&ctx, "test_table", &file_path).await.unwrap();
+    let df = register_table(&ctx, "test_table", &file_path)
+        .await
+        .unwrap();
     let batches = df.collect().await.unwrap();
 
     assert_eq!(batches.len(), 1);

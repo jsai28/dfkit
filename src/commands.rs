@@ -1,13 +1,17 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use crate::utils::{DfKitError, file_type, register_table, write_output};
 use datafusion::arrow::compute::concat_batches;
 use datafusion::datasource::MemTable;
 use datafusion::logical_expr::col;
 use datafusion::prelude::SessionContext;
-use crate::utils::{file_type, register_table, write_output, DfKitError};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-pub async fn view(ctx: &SessionContext, filename: &Path, limit: Option<usize>) -> Result<(), DfKitError> {
+pub async fn view(
+    ctx: &SessionContext,
+    filename: &Path,
+    limit: Option<usize>,
+) -> Result<(), DfKitError> {
     let df = register_table(&ctx, "t", &filename).await?;
     let limit = limit.unwrap_or(10);
 
@@ -20,7 +24,12 @@ pub async fn view(ctx: &SessionContext, filename: &Path, limit: Option<usize>) -
     Ok(())
 }
 
-pub async fn query(ctx: &SessionContext, filename: &Path, sql: Option<String>, output: Option<PathBuf>) -> Result<(), DfKitError> {
+pub async fn query(
+    ctx: &SessionContext,
+    filename: &Path,
+    sql: Option<String>,
+    output: Option<PathBuf>,
+) -> Result<(), DfKitError> {
     let file_type = file_type(&filename)?;
     let _ = register_table(&ctx, "t", &filename).await?;
     let df_sql = ctx.sql(&*sql.unwrap()).await?;
@@ -35,7 +44,11 @@ pub async fn query(ctx: &SessionContext, filename: &Path, sql: Option<String>, o
     Ok(())
 }
 
-pub async fn convert(ctx: &SessionContext, filename: &Path, output_filename: &Path) -> Result<(), DfKitError> {
+pub async fn convert(
+    ctx: &SessionContext,
+    filename: &Path,
+    output_filename: &Path,
+) -> Result<(), DfKitError> {
     let df = register_table(ctx, "t", &filename).await?;
     let output_file_type = file_type(&output_filename)?;
 
@@ -130,9 +143,16 @@ pub async fn reverse(
     Ok(())
 }
 
-pub async fn dfsplit(ctx: &SessionContext, filename: &Path, chunks: usize, output_dir: &Path) -> Result<(), DfKitError> {
+pub async fn dfsplit(
+    ctx: &SessionContext,
+    filename: &Path,
+    chunks: usize,
+    output_dir: &Path,
+) -> Result<(), DfKitError> {
     if chunks == 0 {
-        return Err(DfKitError::CustomError("Chunks must be greater than 0".into()));
+        return Err(DfKitError::CustomError(
+            "Chunks must be greater than 0".into(),
+        ));
     }
     let df = register_table(ctx, "t", filename).await?;
     let total_rows = df.clone().count().await?;
@@ -144,7 +164,9 @@ pub async fn dfsplit(ctx: &SessionContext, filename: &Path, chunks: usize, outpu
     }
 
     if chunks > total_rows {
-        return Err(DfKitError::CustomError("Chunks must be smaller than total rows".into()));
+        return Err(DfKitError::CustomError(
+            "Chunks must be smaller than total rows".into(),
+        ));
     }
 
     fs::create_dir_all(output_dir)?;
@@ -172,7 +194,11 @@ pub async fn dfsplit(ctx: &SessionContext, filename: &Path, chunks: usize, outpu
     Ok(())
 }
 
-pub async fn cat(ctx: &SessionContext, files: Vec<PathBuf>, out_path: &Path) -> Result<(), DfKitError> {
+pub async fn cat(
+    ctx: &SessionContext,
+    files: Vec<PathBuf>,
+    out_path: &Path,
+) -> Result<(), DfKitError> {
     let mut dfs = vec![];
 
     for (i, file) in files.iter().enumerate() {
