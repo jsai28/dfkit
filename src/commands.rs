@@ -218,3 +218,22 @@ pub async fn cat(
 
     Ok(())
 }
+
+pub async fn dedup(
+    ctx: &SessionContext,
+    filename: &Path,
+    output: Option<PathBuf>,
+) -> Result<(), DfKitError> {
+    let _ = register_table(&ctx, "t", &filename).await?;
+    let df = ctx.sql("SELECT DISTINCT * FROM t").await?;
+
+    if let Some(out_path) = output {
+        let file_type = file_type(&filename)?;
+        write_output(df, &out_path, &file_type).await?;
+        println!("Deduplicated file written to: {}", out_path.display());
+    } else {
+        df.show().await?;
+    }
+
+    Ok(())
+}

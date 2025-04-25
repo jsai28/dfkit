@@ -376,3 +376,30 @@ fn test_url_file_split_to_local() {
 
     assert_eq!(files.len(), 5);
 }
+
+
+#[test]
+fn test_dedup_csv_file() {
+    let temp = tempdir().unwrap();
+    let input_path = create_extended_csv(temp.path());
+    fs::write(&input_path, "name,age\nalice,30\nbob,40\ncharlie,25\nalice,30").unwrap();
+
+    let mut cmd = Command::cargo_bin("dfkit").unwrap();
+    let output = cmd
+        .args(["dedup", "--filename", input_path.to_str().unwrap()])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_snapshot!(String::from_utf8(output).unwrap(), @r"
+    +---------+-----+
+    | name    | age |
+    +---------+-----+
+    | bob     | 40  |
+    | charlie | 25  |
+    | alice   | 30  |
+    +---------+-----+
+    ");
+}

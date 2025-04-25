@@ -28,6 +28,7 @@ SUBCOMMANDS:
     cat         Concatenate multiple files or all files in a directory
     convert     Convert file format (CSV, Parquet, JSON)
     count       Count the number of rows in a file
+    dedup       Remove duplicate rows
     describe    Show summary statistics for a file
     help        Prints this message or the help of the given subcommand(s)
     query       Run a SQL query on a file

@@ -1,5 +1,5 @@
 use datafusion::prelude::*;
-use dfkit::commands::{cat, convert, count, describe, dfsplit, query, reverse, schema, sort, view};
+use dfkit::commands::{cat, convert, count, describe, dfsplit, query, reverse, schema, sort, view, dedup};
 use dfkit::utils::{DfKitError, parse_file_list};
 use std::env;
 use std::path::PathBuf;
@@ -101,6 +101,14 @@ pub enum Commands {
         #[structopt(short, long, parse(from_os_str))]
         output: PathBuf,
     },
+
+    #[structopt(about = "Remove duplicate rows")]
+    Dedup {
+        #[structopt(short, long, parse(from_os_str))]
+        filename: PathBuf,
+        #[structopt(short, long, parse(from_os_str))]
+        output: Option<PathBuf>,
+    }
 }
 
 #[tokio::main]
@@ -157,6 +165,9 @@ async fn main() -> Result<(), DfKitError> {
         Commands::Cat { files, dir, output } => {
             let file_list = parse_file_list(files, dir)?;
             cat(&ctx, file_list, &output).await?;
+        }
+        Commands::Dedup { filename, output } => {
+            dedup(&ctx, &filename, output).await?;
         }
     }
 
