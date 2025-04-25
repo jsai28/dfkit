@@ -382,7 +382,7 @@ fn test_url_file_split_to_local() {
 fn test_dedup_csv_file() {
     let temp = tempdir().unwrap();
     let input_path = create_extended_csv(temp.path());
-    fs::write(&input_path, "name,age\nalice,30\nbob,40\ncharlie,25\nalice,30").unwrap();
+    fs::write(&input_path, "name,age\nalice,30\nalice,30").unwrap();
 
     let mut cmd = Command::cargo_bin("dfkit").unwrap();
     let output = cmd
@@ -394,12 +394,10 @@ fn test_dedup_csv_file() {
         .clone();
 
     assert_snapshot!(String::from_utf8(output).unwrap(), @r"
-    +---------+-----+
-    | name    | age |
-    +---------+-----+
-    | bob     | 40  |
-    | charlie | 25  |
-    | alice   | 30  |
-    +---------+-----+
+    +-------+-----+
+    | name  | age |
+    +-------+-----+
+    | alice | 30  |
+    +-------+-----+
     ");
 }

@@ -15,7 +15,7 @@ Here's a high level overview of some of the features in dfkit:
 - Written entirely in Rust!
 ## Commands
 ```
-dfkit 0.1.0
+dfkit 0.2.0
 
 USAGE:
     dfkit <SUBCOMMAND>
