@@ -6,6 +6,8 @@ use reqwest::Client;
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 use thiserror::Error;
+use object_store::parse_url;
+use url::Url;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum FileFormat {
@@ -15,12 +17,25 @@ pub enum FileFormat {
     Avro,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum StorageType {
+    Local,
+    Url,
+    S3,
+}
+
 #[derive(Error, Debug)]
 pub enum FileParseError {
     #[error("unsupported file format")]
     UnsupportedFileFormat,
     #[error("invalid file extension")]
     InvalidExtension,
+}
+
+#[derive(Error, Debug)]
+pub enum StorageTypeError {
+    #[error("unsupported storage type")]
+    UnsupportedStorageType,
 }
 
 #[derive(Error, Debug)]
@@ -45,6 +60,9 @@ pub enum DfKitError {
 
     #[error("Reqwest error: {0}")]
     Reqwest(#[from] reqwest::Error),
+
+    #[error("Storage Type error: {0}")]
+    Storage(#[from] StorageTypeError),
 }
 
 pub fn file_type(file_path: &Path) -> Result<FileFormat, FileParseError> {
@@ -61,21 +79,44 @@ pub fn file_type(file_path: &Path) -> Result<FileFormat, FileParseError> {
     }
 }
 
+pub fn storage_type(file_path: &Path) -> Result<StorageType, DfKitError> {
+    let path_str = file_path
+        .to_str()
+        .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
+
+    if path_str.starts_with("http://") || path_str.starts_with("https://") {
+        Ok(StorageType::Url)
+    } else if path_str.starts_with("s3://") {
+        Ok(StorageType::S3)
+    } else if file_path.is_absolute() {
+        Ok(StorageType::Local)
+    } else {
+        Err(DfKitError::Storage(StorageTypeError::UnsupportedStorageType))
+    }
+
+}
+
 pub async fn register_table(
     ctx: &SessionContext,
     table_name: &str,
     file_path: &Path,
 ) -> Result<DataFrame, DfKitError> {
-    let path_str = file_path
-        .to_str()
-        .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
-    let is_url = path_str.starts_with("http://") || path_str.starts_with("https://");
-
-    let actual_path = if is_url {
-        let (_tmpfile, local_path) = download_to_tempfile(path_str).await?;
-        local_path
-    } else {
-        file_path.to_path_buf()
+    let storage_type = storage_type(file_path)?;
+    let actual_path = match storage_type {
+        StorageType::Local => {
+            file_path.to_path_buf()
+        }
+        StorageType::Url => {
+            let path_str = file_path
+                .to_str()
+                .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
+            let (_tmpfile, local_path) = download_to_tempfile(path_str).await?;
+            local_path
+        }
+        StorageType::S3 => {
+            let url = Url::parse(file_path.to_into())?;
+            let (store, path) = parse_url(&url)?;
+        }
     };
 
     let file_format = file_type(&actual_path)?;

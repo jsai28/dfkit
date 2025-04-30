@@ -840,7 +840,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "num-traits",
- "object_store",
+ "object_store 0.11.2",
  "parking_lot",
  "parquet",
  "rand",
@@ -892,7 +892,7 @@ dependencies = [
  "datafusion-physical-plan",
  "futures",
  "log",
- "object_store",
+ "object_store 0.11.2",
  "tokio",
 ]
 
@@ -912,7 +912,7 @@ dependencies = [
  "indexmap",
  "libc",
  "log",
- "object_store",
+ "object_store 0.11.2",
  "parquet",
  "paste",
  "recursive",
@@ -956,7 +956,7 @@ dependencies = [
  "glob",
  "itertools 0.14.0",
  "log",
- "object_store",
+ "object_store 0.11.2",
  "rand",
  "tokio",
  "tokio-util",
@@ -983,7 +983,7 @@ dependencies = [
  "datafusion-expr",
  "futures",
  "log",
- "object_store",
+ "object_store 0.11.2",
  "parking_lot",
  "rand",
  "tempfile",
@@ -1290,12 +1290,14 @@ dependencies = [
  "assert_cmd",
  "datafusion",
  "insta",
+ "object_store 0.12.0",
  "predicates",
  "reqwest",
  "structopt",
  "tempfile",
  "thiserror 2.0.12",
  "tokio",
+ "url",
 ]
 
 [[package]]
@@ -2343,6 +2345,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "object_store"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9ce831b09395f933addbc56d894d889e4b226eba304d4e7adbab591e26daf1e"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "chrono",
+ "futures",
+ "http",
+ "humantime",
+ "itertools 0.14.0",
+ "parking_lot",
+ "percent-encoding",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+ "url",
+ "walkdir",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2449,7 +2473,7 @@ dependencies = [
  "lz4_flex",
  "num",
  "num-bigint",
- "object_store",
+ "object_store 0.11.2",
  "paste",
  "seq-macro",
  "simdutf8",
