@@ -4,9 +4,10 @@ use datafusion::error::DataFusionError;
 use datafusion::prelude::*;
 use reqwest::Client;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tempfile::NamedTempFile;
 use thiserror::Error;
-use object_store::parse_url;
+use object_store::aws::AmazonS3Builder;
 use url::Url;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -63,6 +64,12 @@ pub enum DfKitError {
 
     #[error("Storage Type error: {0}")]
     Storage(#[from] StorageTypeError),
+
+    #[error("Parse error during URL parsing: {0}")]
+    UrlParse(#[from] url::ParseError),
+
+    #[error("ObjectStore error: {0}")]
+    ObjectStore(#[from] object_store::Error),
 }
 
 pub fn file_type(file_path: &Path) -> Result<FileFormat, FileParseError> {
@@ -102,45 +109,63 @@ pub async fn register_table(
     file_path: &Path,
 ) -> Result<DataFrame, DfKitError> {
     let storage_type = storage_type(file_path)?;
-    let actual_path = match storage_type {
+    let (file_format, file_name): (FileFormat, String) = match storage_type {
         StorageType::Local => {
-            file_path.to_path_buf()
+            let path = file_path.to_path_buf();
+            let file_format = file_type(&path)?;
+            let file_name = path.to_str()
+                .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?
+                .to_string();
+            (file_format, file_name)
         }
         StorageType::Url => {
             let path_str = file_path
                 .to_str()
                 .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
             let (_tmpfile, local_path) = download_to_tempfile(path_str).await?;
-            local_path
+            let file_format = file_type(&local_path)?;
+            let file_name = local_path
+                .to_str()
+                .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?
+                .to_string();
+            (file_format, file_name)
         }
         StorageType::S3 => {
-            let url = Url::parse(file_path.to_into())?;
-            let (store, path) = parse_url(&url)?;
+            let path_str = file_path
+                .to_str()
+                .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
+            let url = Url::parse(path_str)?;
+            let bucket = url.host_str()
+                .ok_or_else(|| DfKitError::CustomError("Missing bucket in S3 URL".into()))?;
+            let store= Arc::from(AmazonS3Builder::from_env()
+                .with_bucket_name(bucket).build()?);
+
+            ctx.runtime_env()
+                .register_object_store(&url, store);
+
+            let file_format = file_type(&file_path.to_path_buf())?;
+            (file_format, path_str.to_string())
         }
     };
 
-    let file_format = file_type(&actual_path)?;
-    let file_name = actual_path
-        .to_str()
-        .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
     match file_format {
         FileFormat::Csv => {
-            ctx.register_csv(table_name, file_name, CsvReadOptions::default())
-                .await?
+            ctx.register_csv(table_name, &file_name, CsvReadOptions::default())
+                .await?;
         }
         FileFormat::Parquet => {
-            ctx.register_parquet(table_name, file_name, ParquetReadOptions::default())
-                .await?
+            ctx.register_parquet(table_name, &file_name, ParquetReadOptions::default())
+                .await?;
         }
         FileFormat::Json => {
-            ctx.register_json(table_name, file_name, NdJsonReadOptions::default())
-                .await?
+            ctx.register_json(table_name, &file_name, NdJsonReadOptions::default())
+                .await?;
         }
         FileFormat::Avro => {
-            ctx.register_avro(table_name, file_name, AvroReadOptions::default())
-                .await?
+            ctx.register_avro(table_name, &file_name, AvroReadOptions::default())
+                .await?;
         }
-    };
+    }
 
     Ok(ctx.table(table_name).await?)
 }
