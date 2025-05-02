@@ -8,7 +8,8 @@ dfkit is an extensive suite of command-line functions to easily view, query, and
 ## Highlights
 Here's a high level overview of some of the features in dfkit:
 
-- Supports viewing and manipulating files stored locally, from URLs, and S3 storage.
+- Supports viewing, querying, and manipulating files stored locally, on the web, 
+or from cloud storage services such as Amazon S3 and Google Cloud Storage.
 - Works with CSV, JSON, Parquet, and Avro files
 - Ultra-fast performance powered by Apache Arrow and DataFusion
 - Transform data with SQL or with several other built-in functions
