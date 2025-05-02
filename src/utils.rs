@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 use object_store::aws::AmazonS3Builder;
+use object_store::gcp::GoogleCloudStorageBuilder;
 use url::Url;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -23,6 +24,7 @@ pub enum StorageType {
     Local,
     Url,
     S3,
+    GCS
 }
 
 #[derive(Error, Debug)]
@@ -95,6 +97,8 @@ pub fn storage_type(file_path: &Path) -> Result<StorageType, DfKitError> {
         Ok(StorageType::Url)
     } else if path_str.starts_with("s3://") {
         Ok(StorageType::S3)
+    } else if path_str.starts_with("gs://") {
+        Ok(StorageType::GCS)
     } else if file_path.is_absolute() {
         Ok(StorageType::Local)
     } else {
@@ -139,6 +143,27 @@ pub async fn register_table(
                 .ok_or_else(|| DfKitError::CustomError("Missing bucket in S3 URL".into()))?;
             let store= Arc::from(AmazonS3Builder::from_env()
                 .with_bucket_name(bucket).build()?);
+
+            ctx.runtime_env()
+                .register_object_store(&url, store);
+
+            let file_format = file_type(&file_path.to_path_buf())?;
+            (file_format, path_str.to_string())
+        }
+        StorageType::GCS => {
+            let path_str = file_path
+                .to_str()
+                .ok_or(DfKitError::FileParse(FileParseError::InvalidExtension))?;
+
+            let url = Url::parse(path_str)?;
+            let bucket = url.host_str()
+                .ok_or_else(|| DfKitError::CustomError("Missing bucket in GCS URL".into()))?;
+
+            let store = Arc::from(
+                GoogleCloudStorageBuilder::from_env()
+                    .with_bucket_name(bucket)
+                    .build()?
+            );
 
             ctx.runtime_env()
                 .register_object_store(&url, store);
